@@ -1,5 +1,5 @@
 {
-    "name": "voyager/vessel",
+    "name": "venusian-voyager/vessel",
     "description": "The Voyager Service Container package.",
     "license": "MIT",
     "authors": [
@@ -13,17 +13,17 @@
     ],
     "require": {
         "php": "^8.4|^8.5",
-        "voyager/contracts": "^0.8.0",
-        "voyager/reflection": "^0.8.0",
+        "venusian-voyager/contracts": "^0.8.0",
+        "venusian-voyager/reflection": "^0.8.0",
         "symfony/polyfill-php86": "^1.34",
         "psr/container": "^1.1.1 || ^2.0.1"
     },
     "suggest": {
-        "voyager/cache": "Required to use the Cache attribute",
-        "voyager/config": "Required to use the Config attribute",
-        "voyager/database": "Required to use the DB attribute",
-        "voyager/filesystem": "Required to use the Storage attribute",
-        "voyager/log": "Required to use the Log or Context attributes"
+        "venusian-voyager/cache": "Required to use the Cache attribute",
+        "venusian-voyager/config": "Required to use the Config attribute",
+        "venusian-voyager/database": "Required to use the DB attribute",
+        "venusian-voyager/filesystem": "Required to use the Storage attribute",
+        "venusian-voyager/log": "Required to use the Log or Context attributes"
     },
     "provide": {
         "psr/container-implementation": "1.1 || 2.0"
