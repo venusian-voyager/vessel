@@ -2,7 +2,7 @@
 
 namespace Voyager\Vessel;
 
-use Voyager\Contracts\Vessel\Vessel;
+use Voyager\Contracts\Vessel\TheServiceContainer;
 use Voyager\Contracts\Vessel\ContextualBindingBuilder as ContextualBindingBuilderContract;
 
 class ContextualBindingBuilder implements ContextualBindingBuilderContract
@@ -10,9 +10,9 @@ class ContextualBindingBuilder implements ContextualBindingBuilderContract
     /**
      * The underlying vessel instance.
      *
-     * @var \Voyager\Contracts\Vessel\Vessel
+     * @var TheServiceContainer
      */
-    protected Vessel $vessel;
+    protected TheServiceContainer $vessel;
 
     /**
      * The concrete instance.
@@ -24,17 +24,17 @@ class ContextualBindingBuilder implements ContextualBindingBuilderContract
     /**
      * The abstract target.
      *
-     * @var string
+     * @var string|null
      */
     protected ?string $needs = null;
 
     /**
      * Create a new contextual binding builder.
      *
-     * @param  \Voyager\Contracts\Vessel\Vessel  $vessel
+     * @param TheServiceContainer $vessel
      * @param  string|array  $concrete
      */
-    public function __construct(Vessel $vessel, array|string $concrete)
+    public function __construct(TheServiceContainer $vessel, array|string $concrete)
     {
         $this->concrete = $concrete;
         $this->vessel = $vessel;
@@ -56,7 +56,7 @@ class ContextualBindingBuilder implements ContextualBindingBuilderContract
     /**
      * Define the implementation for the contextual binding.
      *
-     * @param  \Closure|string|array  $implementation
+     * @param  callable|string|array  $implementation
      * @return $this
      */
     public function give(array|callable|string $implementation): static

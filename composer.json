@@ -6,25 +6,16 @@
         {
             "name": "Angel Gonzalez",
             "email": "angel@projectsaturnstudios.com"
-        },
-        {
-            "name": "Taylor Otwell"
         }
     ],
     "require": {
         "php": "^8.4|^8.5",
-        "venusian-voyager/contracts": "^0.8.0",
-        "venusian-voyager/reflection": "^0.8.0",
         "symfony/polyfill-php86": "^1.34",
-        "psr/container": "^1.1.1 || ^2.0.1"
+        "psr/container": "^1.1.1 || ^2.0.1",
+        "venusian-voyager/contracts": "^0.9.0",
+        "venusian-voyager/reflection": "^0.9.0"
     },
-    "suggest": {
-        "venusian-voyager/cache": "Required to use the Cache attribute",
-        "venusian-voyager/config": "Required to use the Config attribute",
-        "venusian-voyager/database": "Required to use the DB attribute",
-        "venusian-voyager/filesystem": "Required to use the Storage attribute",
-        "venusian-voyager/log": "Required to use the Log or Context attributes"
-    },
+    "suggest": {},
     "provide": {
         "psr/container-implementation": "1.1 || 2.0"
     },
@@ -33,19 +24,13 @@
             "Voyager\\Vessel\\": ""
         }
     },
-    "extra": {
-        "branch-alias": {
-            "dev-main": "0.8.x-dev"
-        },
-        "venusian": {
-            "upstream": "laravel/framework",
-            "upstream-ref": "v12.67.0",
-            "upstream-path": "src/Illuminate/Container",
-            "ported-at": "2026-08-19"
-        }
-    },
     "config": {
         "sort-packages": true
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.9.x-dev"
+        }
     },
     "minimum-stability": "dev"
 }
