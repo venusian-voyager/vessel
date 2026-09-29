@@ -306,6 +306,17 @@ trait ContainerBinding
     }
 
     /**
+     * Drops the scoped bindings' instances, so the next resolution builds them fresh: a queue
+     * worker calls this between jobs.
+     */
+    public function forgetScopedInstances(): void
+    {
+        foreach ($this->scoped_instances as $scoped) {
+            unset($this->instances[$scoped]);
+        }
+    }
+
+    /**
      * Flush the vessel of all bindings and resolved instances.
      *
      * @return void
