@@ -2,7 +2,11 @@
 
 namespace Voyager\Vessel\Concerns;
 
+use Fiber;
 use Closure;
+use WeakMap;
+use ArrayObject;
+use LogicException;
 use ReflectionClass;
 use ReflectionAttribute;
 use ReflectionException;
@@ -35,11 +39,26 @@ trait ContainerBinding
     protected array $instances = [];
 
     /**
-     * The container's scoped instances.
+     * The abstracts bound as scoped: shared within one fiber (or the main context), not across.
      *
-     * @var array
+     * @var array<string, true>
      */
     protected array $scoped_instances = [];
+
+    /**
+     * Each fiber's scoped instances. A bag goes with its fiber, so a long-running server
+     * starting thousands of them holds none it no longer runs.
+     *
+     * @var WeakMap<Fiber, ArrayObject<string, mixed>>|null
+     */
+    private ?WeakMap $fiber_scopes = null;
+
+    /**
+     * The scoped instances of the main context, outside any fiber.
+     *
+     * @var ArrayObject<string, mixed>|null
+     */
+    private ?ArrayObject $main_scope = null;
 
     /**
      * The container's bindings.
@@ -178,9 +197,7 @@ trait ContainerBinding
         }
 
         if ($scopedType === 'scoped') {
-            if (! in_array($abstract, $this->scoped_instances, true)) {
-                $this->scoped_instances[] = $abstract;
-            }
+            $this->scoped_instances[$abstract] = true;
         }
 
         return true;
@@ -306,13 +323,108 @@ trait ContainerBinding
     }
 
     /**
-     * Drops the scoped bindings' instances, so the next resolution builds them fresh: a queue
-     * worker calls this between jobs.
+     * Drops the current fiber's scoped instances (the main context's, outside any fiber), so its
+     * next resolutions build them fresh: a queue worker calls this between jobs. Other fibers
+     * keep theirs.
      */
     public function forgetScopedInstances(): void
     {
-        foreach ($this->scoped_instances as $scoped) {
-            unset($this->instances[$scoped]);
+        if (($fiber = Fiber::getCurrent()) === null) {
+            $this->main_scope = new ArrayObject;
+
+            return;
+        }
+
+        $this->fiber_scopes ??= new WeakMap;
+        $this->fiber_scopes[$fiber] = new ArrayObject;
+    }
+
+    /**
+     * Hands a fiber not yet started the current scope, so it resolves the scoped instances its
+     * starter does: a task sees the scope of the fiber that started it.
+     *
+     * @throws LogicException
+     */
+    public function shareScopeWith(Fiber $child): void
+    {
+        if ($child->isStarted()) {
+            throw new LogicException('A fiber already started keeps the scope it began with.');
+        }
+
+        $this->fiber_scopes ??= new WeakMap;
+        $this->fiber_scopes[$child] = $this->currentScope();
+    }
+
+    /**
+     * Determine if the given abstract is bound as scoped.
+     *
+     * @param string $abstract
+     * @return bool
+     */
+    protected function isScoped(string $abstract): bool
+    {
+        return isset($this->scoped_instances[$abstract]);
+    }
+
+    /**
+     * The scoped instances of the running fiber, or of the main context outside any fiber.
+     *
+     * @return ArrayObject<string, mixed>
+     */
+    protected function currentScope(): ArrayObject
+    {
+        if (($fiber = Fiber::getCurrent()) === null) {
+            return $this->main_scope ??= new ArrayObject;
+        }
+
+        $this->fiber_scopes ??= new WeakMap;
+
+        return $this->fiber_scopes[$fiber] ??= new ArrayObject;
+    }
+
+    /**
+     * The shared instance the current context holds for the abstract, if any.
+     *
+     * @param string $abstract
+     * @return mixed
+     */
+    protected function sharedInstance(string $abstract): mixed
+    {
+        return $this->isScoped($abstract)
+            ? $this->currentScope()[$abstract] ?? null
+            : $this->instances[$abstract] ?? null;
+    }
+
+    /**
+     * Keep a shared instance: in the current scope when the abstract is scoped.
+     *
+     * @param string $abstract
+     * @param mixed $instance
+     * @return void
+     */
+    protected function storeSharedInstance(string $abstract, mixed $instance): void
+    {
+        if ($this->isScoped($abstract)) {
+            $this->currentScope()[$abstract] = $instance;
+        } else {
+            $this->instances[$abstract] = $instance;
+        }
+    }
+
+    /**
+     * Drop the abstract's instance from every scope, the main context's and each fiber's.
+     *
+     * @param string $abstract
+     * @return void
+     */
+    protected function forgetInEveryScope(string $abstract): void
+    {
+        if ($this->main_scope !== null) {
+            unset($this->main_scope[$abstract]);
+        }
+
+        foreach ($this->fiber_scopes ?? [] as $scope) {
+            unset($scope[$abstract]);
         }
     }
 
@@ -329,6 +441,8 @@ trait ContainerBinding
         $this->instances = [];
         $this->abstract_aliases = [];
         $this->scoped_instances = [];
+        $this->fiber_scopes = null;
+        $this->main_scope = null;
         $this->checked_for_attribute_bindings = [];
         $this->checked_for_singleton_or_scoped_attributes = [];
     }
@@ -394,8 +508,8 @@ trait ContainerBinding
         // If an instance of the type is currently being managed as a singleton we'll
         // just return an existing instance instead of instantiating new instances
         // so the developer can keep using the same objects instance every time.
-        if (isset($this->instances[$abstract]) && ! $needs_contextual_build) {
-            return $this->instances[$abstract];
+        if (! $needs_contextual_build && ($instance = $this->sharedInstance($abstract)) !== null) {
+            return $instance;
         }
 
         $this->with[] = $parameters;
@@ -422,7 +536,7 @@ trait ContainerBinding
         // the instances in "memory" so we can return it later without creating an
         // entirely new instance of an object on each subsequent request for it.
         if ($this->isShared($abstract) && ! $needs_contextual_build) {
-            $this->instances[$abstract] = $object;
+            $this->storeSharedInstance($abstract, $object);
         }
 
         if ($fire_hooks) {
@@ -753,7 +867,9 @@ trait ContainerBinding
      */
     protected function dropStaleInstances(string $abstract): void
     {
-        unset($this->instances[$abstract], $this->aliases[$abstract]);
+        unset($this->instances[$abstract], $this->aliases[$abstract], $this->scoped_instances[$abstract]);
+
+        $this->forgetInEveryScope($abstract);
     }
 
     /**

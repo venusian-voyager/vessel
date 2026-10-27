@@ -91,7 +91,9 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
      */
     public function offsetUnset(mixed $offset): void
     {
-        unset($this->bindings[$offset], $this->instances[$offset], $this->resolved[$offset]);
+        unset($this->bindings[$offset], $this->instances[$offset], $this->resolved[$offset], $this->scoped_instances[$offset]);
+
+        $this->forgetInEveryScope($offset);
     }
 
     /**
@@ -142,7 +144,8 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
         }
 
         return isset($this->resolved[$abstract]) ||
-            isset($this->instances[$abstract]);
+            isset($this->instances[$abstract]) ||
+            ($this->isScoped($abstract) && isset($this->currentScope()[$abstract]));
     }
 
     /**
@@ -268,7 +271,8 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
         // We'll check to determine if this type has been bound before, and if it has
         // we will fire the rebound callbacks registered with the container.
         // Then, it can be updated with consuming classes that have gotten resolved here.
-        $this->instances[$abstract] = $instance;
+        // A scoped abstract's instance belongs to the current fiber (the main context outside one).
+        $this->storeSharedInstance($abstract, $instance);
 
         if ($is_bound) {
             $this->fireReboundHooks($abstract);
@@ -276,7 +280,7 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
     }
 
     /**
-     * Register a scoped binding in the container.
+     * Register a scoped binding in the container: see scoped().
      *
      * @param callable|string $abstract
      * @param callable|string|null $concrete
@@ -285,9 +289,7 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
      */
     public function registerScoped(callable|string $abstract, callable|string|null $concrete = null): void
     {
-        $this->scoped_instances[] = $abstract;
-
-        $this->registerSingleton($abstract, $concrete);
+        $this->scoped($abstract, $concrete);
     }
 
     /**
@@ -446,7 +448,8 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
     }
 
     /**
-     * Register a scoped binding in the vessel.
+     * Register a scoped binding in the vessel: one instance per fiber, and one for the main
+     * context outside any fiber. A closure registers its return types.
      *
      * @param callable|string $abstract
      * @param callable|string|null $concrete
@@ -455,9 +458,14 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
      */
     public function scoped(callable|string $abstract, callable|string|null $concrete = null): void
     {
-        $this->scoped_instances[] = $abstract;
-
+        // binding drops the abstract's old instances and scoped mark, so mark it after
         $this->registerSingleton($abstract, $concrete);
+
+        $abstracts = $abstract instanceof Closure ? $this->closureReturnTypes($abstract) : [$abstract];
+
+        foreach ($abstracts as $scoped) {
+            $this->scoped_instances[$scoped] = true;
+        }
     }
 
     /**
