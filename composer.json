@@ -12,8 +12,8 @@
         "php": "~8.4.27||^8.5.12",
         "psr/container": "^1.1.1 || ^2.0.1",
         "symfony/polyfill-php85": "^1.33",
-        "venusian-voyager/contracts": "^0.10.0",
-        "venusian-voyager/reflection": "^0.10.0"
+        "venusian-voyager/contracts": "^0.11.0",
+        "venusian-voyager/reflection": "^0.11.0"
     },
     "provide": {
         "psr/container-implementation": "1.1 || 2.0"
@@ -28,7 +28,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.10.x-dev"
+            "dev-main": "0.11.x-dev"
         }
     },
     "minimum-stability": "dev"
