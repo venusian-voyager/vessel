@@ -29,6 +29,11 @@ class ControlPanel implements TheServiceContainer, ArrayAccess
     protected static ?ControlPanel $instance = null;
 
     // SERVICE CONTAINER METHODS
+
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function get(string $id): mixed
     {
         try
